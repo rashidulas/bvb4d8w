@@ -3,6 +3,8 @@ import { ExerciseTable } from '@/components/exercises/ExerciseTable';
 import { AddExerciseButton } from '@/components/exercises/AddExerciseButton';
 import { BookOpen } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
     title: 'Exercise Database — PowerTrack',
     description: 'Manage your exercise library for your powerlifting program.',
