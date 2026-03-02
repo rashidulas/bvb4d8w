@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, Suspense } from 'react';
+
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Save, ChevronDown, Dumbbell, Loader2 } from 'lucide-react';
@@ -20,7 +21,8 @@ import { getExercises, ExerciseData } from '@/lib/actions/exercises';
 
 const DAY_LABELS = ['', 'Squat Day', 'Bench Day', 'Deadlift Day', 'Upper Accessory'];
 
-export default function TrainingPage() {
+function TrainingPageInner() {
+
     const searchParams = useSearchParams();
     const router = useRouter();
 
@@ -209,5 +211,19 @@ export default function TrainingPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export const dynamic = 'force-dynamic';
+
+export default function TrainingPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[60vh] text-muted-foreground">
+                Loading training log…
+            </div>
+        }>
+            <TrainingPageInner />
+        </Suspense>
     );
 }
