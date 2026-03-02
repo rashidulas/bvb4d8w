@@ -10,11 +10,15 @@ export const metadata = {
 
 export default async function ExercisesPage() {
     let exercises: Awaited<ReturnType<typeof getExercises>> = [];
+    let hasError = false;
+    let errorMessage = '';
 
     try {
         exercises = await getExercises();
-    } catch {
-        // MongoDB not connected — show empty state
+    } catch (err) {
+        hasError = true;
+        errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('[ExercisesPage] Failed to load exercises:', err);
     }
 
     return (
@@ -26,9 +30,15 @@ export default async function ExercisesPage() {
                         <BookOpen className="h-5 w-5 text-primary" />
                         <h1 className="text-2xl font-bold tracking-tight">Exercise Database</h1>
                     </div>
-                    <p className="text-muted-foreground text-sm">
-                        {exercises.length} exercise{exercises.length !== 1 ? 's' : ''} — source of truth for training day dropdowns.
-                    </p>
+                    {hasError ? (
+                        <p className="text-red-500 text-sm">
+                            ⚠️ Database connection error: {errorMessage}
+                        </p>
+                    ) : (
+                        <p className="text-muted-foreground text-sm">
+                            {exercises.length} exercise{exercises.length !== 1 ? 's' : ''} — source of truth for training day dropdowns.
+                        </p>
+                    )}
                 </div>
                 <AddExerciseButton />
             </div>

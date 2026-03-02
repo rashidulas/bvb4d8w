@@ -23,15 +23,20 @@ function serialize(doc: IExercise): ExerciseData {
 }
 
 export async function getExercises(): Promise<ExerciseData[]> {
-    await dbConnect();
-    const exercises = await Exercise.find().sort({ category: 1, name: 1 }).lean();
-    return exercises.map((e) => ({
-        _id: e._id.toString(),
-        name: e.name as string,
-        category: e.category as ExerciseCategory,
-        createdAt: (e.createdAt as Date).toISOString(),
-        updatedAt: (e.updatedAt as Date).toISOString(),
-    }));
+    try {
+        await dbConnect();
+        const exercises = await Exercise.find().sort({ category: 1, name: 1 }).lean();
+        return exercises.map((e) => ({
+            _id: e._id.toString(),
+            name: e.name as string,
+            category: e.category as ExerciseCategory,
+            createdAt: (e.createdAt as Date).toISOString(),
+            updatedAt: (e.updatedAt as Date).toISOString(),
+        }));
+    } catch (err: unknown) {
+        console.error('[getExercises] Error:', err);
+        throw err;
+    }
 }
 
 export async function createExercise(data: {
@@ -46,6 +51,7 @@ export async function createExercise(data: {
         revalidatePath('/training');
         return { success: true };
     } catch (err: unknown) {
+        console.error('[createExercise] Error:', err);
         const msg = err instanceof Error ? err.message : 'Unknown error';
         return { success: false, error: msg };
     }

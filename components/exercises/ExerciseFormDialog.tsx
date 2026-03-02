@@ -8,6 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,6 +93,9 @@ export function ExerciseFormDialog({
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'Edit Exercise' : 'Add Exercise'}</DialogTitle>
+                    <DialogDescription>
+                        {isEditing ? 'Update the exercise name and category.' : 'Add a new exercise to your database.'}
+                    </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 mt-2">
                     <div className="space-y-1.5">

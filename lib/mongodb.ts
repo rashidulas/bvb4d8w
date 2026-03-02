@@ -39,6 +39,7 @@ async function dbConnect(): Promise<mongoose.Connection> {
     cached.conn = await cached.promise;
   } catch (e) {
     cached.promise = null;
+    console.error('[MongoDB] Connection failed:', e);
     throw e;
   }
 
