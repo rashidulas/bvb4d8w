@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, Suspense } from 'react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { Save, ChevronDown, Dumbbell, Loader2 } from 'lucide-react';
+import { Save, ChevronDown, Dumbbell, Loader2, Edit, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -14,7 +14,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { WorkoutTable } from '@/components/training/WorkoutTable';
-import { getWorkoutTemplate, WorkoutTemplateData } from '@/lib/actions/programTemplates';
+import { getWorkoutTemplate, WorkoutTemplateData, updateWorkoutTemplate, TemplateExerciseData } from '@/lib/actions/programTemplates';
 import { getWorkoutLog, saveWorkoutLog, LoggedExerciseInput } from '@/lib/actions/workoutLogs';
 import { getExercises, ExerciseData } from '@/lib/actions/exercises';
 
@@ -34,6 +34,8 @@ function TrainingPageInner() {
     const [loggedExercises, setLoggedExercises] = useState<LoggedExerciseInput[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, startSaving] = useTransition();
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [isSavingTemplate, startSavingTemplate] = useTransition();
 
     // Load template + existing log whenever week/day changes
     useEffect(() => {
@@ -96,6 +98,43 @@ function TrainingPageInner() {
         });
     };
 
+    const handleSaveTemplate = () => {
+        if (!template) return;
+
+        startSavingTemplate(async () => {
+            const result = await updateWorkoutTemplate(week, day, template.exercises);
+            if (result.success) {
+                toast.success('Template updated!');
+                setIsEditMode(false);
+                // Sync logged exercises with template
+                setLoggedExercises(
+                    template.exercises.map((ex) => {
+                        const existing = loggedExercises.find((l) => l.exerciseId === ex.exerciseId);
+                        return existing || {
+                            exerciseId: ex.exerciseId,
+                            exerciseName: ex.exerciseName,
+                            actualLoad: null,
+                            actualReps: null,
+                            actualRpe: null,
+                            notes: '',
+                            order: ex.order,
+                        };
+                    })
+                );
+            } else {
+                toast.error(result.error ?? 'Failed to update template');
+            }
+        });
+    };
+
+    const handleTemplateChange = (updatedExercises: TemplateExerciseData[]) => {
+        if (!template) return;
+        setTemplate({
+            ...template,
+            exercises: updatedExercises,
+        });
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -106,22 +145,66 @@ function TrainingPageInner() {
                         <h1 className="text-2xl font-bold tracking-tight">Training Log</h1>
                     </div>
                     <p className="text-muted-foreground text-sm">
-                        Select a week and day to load your program, enter what you actually lifted, then save.
+                        {isEditMode 
+                            ? 'Edit your workout template: add, remove, or reorder exercises.' 
+                            : 'Select a week and day to load your program, enter what you actually lifted, then save.'}
                     </p>
                 </div>
-                <Button
-                    onClick={handleSave}
-                    disabled={isSaving || isLoading || loggedExercises.length === 0}
-                    className="gap-2 shrink-0"
-                    size="lg"
-                >
-                    {isSaving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                <div className="flex gap-2">
+                    {isEditMode ? (
+                        <>
+                            <Button
+                                onClick={() => setIsEditMode(false)}
+                                variant="outline"
+                                disabled={isSavingTemplate}
+                                className="gap-2"
+                                size="lg"
+                            >
+                                <X className="h-4 w-4" />
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleSaveTemplate}
+                                disabled={isSavingTemplate || !template}
+                                className="gap-2"
+                                size="lg"
+                            >
+                                {isSavingTemplate ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Save className="h-4 w-4" />
+                                )}
+                                {isSavingTemplate ? 'Saving…' : 'Save Template'}
+                            </Button>
+                        </>
                     ) : (
-                        <Save className="h-4 w-4" />
+                        <>
+                            <Button
+                                onClick={() => setIsEditMode(true)}
+                                variant="outline"
+                                disabled={isLoading || !template}
+                                className="gap-2"
+                                size="lg"
+                            >
+                                <Edit className="h-4 w-4" />
+                                Edit Template
+                            </Button>
+                            <Button
+                                onClick={handleSave}
+                                disabled={isSaving || isLoading || loggedExercises.length === 0}
+                                className="gap-2 shrink-0"
+                                size="lg"
+                            >
+                                {isSaving ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Save className="h-4 w-4" />
+                                )}
+                                {isSaving ? 'Saving…' : 'Save Workout'}
+                            </Button>
+                        </>
                     )}
-                    {isSaving ? 'Saving…' : 'Save Workout'}
-                </Button>
+                </div>
             </div>
 
             {/* Week / Day selectors */}
@@ -181,6 +264,8 @@ function TrainingPageInner() {
                     exercises={exercises}
                     loggedExercises={loggedExercises}
                     onLoggedExercisesChange={setLoggedExercises}
+                    isEditMode={isEditMode}
+                    onTemplateChange={handleTemplateChange}
                 />
             ) : (
                 <div className="rounded-xl border border-dashed border-border py-16 text-center">

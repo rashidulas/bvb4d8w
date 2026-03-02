@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import dbConnect from '@/lib/mongodb';
 import ProgramTemplate from '@/models/ProgramTemplate';
 
@@ -67,4 +68,37 @@ export async function getWorkoutTemplate(
         label: template.label ?? '',
         exercises,
     };
+}
+
+export async function updateWorkoutTemplate(
+    week: number,
+    day: number,
+    exercises: TemplateExerciseData[]
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        await dbConnect();
+
+        // Update exercises with proper order
+        const exercisesData = exercises.map((ex, index) => ({
+            exerciseId: ex.exerciseId,
+            sets: ex.sets,
+            reps: ex.reps,
+            targetRpe: ex.targetRpe,
+            notes: ex.notes,
+            order: index,
+        }));
+
+        await ProgramTemplate.findOneAndUpdate(
+            { week, day },
+            { exercises: exercisesData },
+            { runValidators: true }
+        );
+
+        revalidatePath('/training');
+        return { success: true };
+    } catch (err: unknown) {
+        console.error('[updateWorkoutTemplate] Error:', err);
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        return { success: false, error: msg };
+    }
 }
