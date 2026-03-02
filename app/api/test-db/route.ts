@@ -19,7 +19,7 @@ export async function GET() {
         return NextResponse.json({ 
             success: true,
             message: 'MongoDB connected successfully',
-            database: conn.db.databaseName,
+            database: conn.db?.databaseName || 'unknown',
             host: conn.host,
             // Only show first and last 10 chars of URI for security
             uriPreview: `${MONGODB_URI.substring(0, 20)}...${MONGODB_URI.substring(MONGODB_URI.length - 20)}`
