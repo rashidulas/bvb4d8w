@@ -116,9 +116,16 @@ export function WorkoutTable({
         if (!newExercise) return;
         
         if (isEditMode) {
-            updateTemplateExercise(index, 'exerciseId', newExerciseId);
-            updateTemplateExercise(index, 'exerciseName', newExercise.name);
-            updateTemplateExercise(index, 'exerciseCategory', newExercise.category);
+            // Update all exercise properties at once to avoid multiple re-renders
+            if (!onTemplateChange) return;
+            const updated = [...template.exercises];
+            updated[index] = {
+                ...updated[index],
+                exerciseId: newExerciseId,
+                exerciseName: newExercise.name,
+                exerciseCategory: newExercise.category,
+            };
+            onTemplateChange(updated);
         } else {
             const updated = [...loggedExercises];
             updated[index] = {
@@ -225,9 +232,12 @@ export function WorkoutTable({
                                         <Select
                                             value={templateEx.exerciseId}
                                             onValueChange={(val) => handleExerciseSwap(exerciseIndex, val)}
+                                            disabled={!isEditMode}
                                         >
                                             <SelectTrigger className="h-9 font-semibold border-none shadow-none p-0 hover:bg-muted/50">
-                                                <SelectValue />
+                                                <SelectValue placeholder={templateEx.exerciseName}>
+                                                    {templateEx.exerciseName}
+                                                </SelectValue>
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {exercises.map((ex) => (

@@ -40,6 +40,9 @@ function TrainingPageInner() {
 
     // Load template + existing log whenever week/day changes
     useEffect(() => {
+        // Don't reload if we're in edit mode to preserve unsaved changes
+        if (isEditMode) return;
+        
         const load = async () => {
             setIsLoading(true);
             try {
@@ -167,6 +170,18 @@ function TrainingPageInner() {
         });
     };
 
+    const handleCancelEdit = async () => {
+        setIsEditMode(false);
+        // Reload the original template from the server
+        try {
+            const tmpl = await getWorkoutTemplate(week, day);
+            setTemplate(tmpl);
+            toast.info('Changes discarded');
+        } catch {
+            toast.error('Failed to reload template');
+        }
+    };
+
     const handleTemplateChange = (updatedExercises: TemplateExerciseData[]) => {
         if (!template) return;
         setTemplate({
@@ -194,7 +209,7 @@ function TrainingPageInner() {
                     {isEditMode ? (
                         <>
                             <Button
-                                onClick={() => setIsEditMode(false)}
+                                onClick={handleCancelEdit}
                                 variant="outline"
                                 disabled={isSavingTemplate}
                                 className="gap-2"
