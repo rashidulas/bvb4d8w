@@ -4,12 +4,16 @@ import { revalidatePath } from 'next/cache';
 import dbConnect from '@/lib/mongodb';
 import WorkoutLog from '@/models/WorkoutLog';
 
+export interface SetData {
+    load: number | null;  // in lbs
+    reps: number | null;
+    rpe: number | null;
+}
+
 export interface LoggedExerciseInput {
     exerciseId: string;
     exerciseName: string;
-    actualLoad: number | null;
-    actualReps: number | null;
-    actualRpe: number | null;
+    sets: SetData[];
     notes: string;
     order: number;
 }
@@ -50,9 +54,7 @@ export async function saveWorkoutLog(
                 loggedExercises: input.loggedExercises.map((ex, i) => ({
                     exerciseId: ex.exerciseId,
                     exerciseName: ex.exerciseName,
-                    actualLoad: ex.actualLoad,
-                    actualReps: ex.actualReps,
-                    actualRpe: ex.actualRpe,
+                    sets: ex.sets,
                     notes: ex.notes,
                     order: ex.order ?? i,
                 })),
@@ -91,17 +93,50 @@ export async function getWorkoutLog(
             exerciseName?: string;
             actualLoad?: number | null;
             actualReps?: number | null;
-            actualRpe?: number | null;
+            sets?: { load: number | null; reps: number | null; rpe: number | null }[];
             notes?: string;
             order?: number;
         }, i: number) => ({
             exerciseId: ex.exerciseId.toString(),
             exerciseName: ex.exerciseName ?? '',
-            actualLoad: ex.actualLoad ?? null,
-            actualReps: ex.actualReps ?? null,
-            actualRpe: ex.actualRpe ?? null,
+            sets: ex.sets ?? [],
             notes: ex.notes ?? '',
             order: ex.order ?? i,
+        })),
+    };
+}
+
+export async function getPreviousWeekLog(
+    week: number,
+    day: number
+): Promise<WorkoutLogData | null> {
+    await dbConnect();
+
+    if (week <= 1) return null;
+
+    const prevWeek = week - 1;
+    const log = await WorkoutLog.findOne({ week: prevWeek, day })
+        .sort({ date: -1 })
+        .lean();
+
+    if (!log) return null;
+
+    return {
+        _id: log._id.toString(),
+        date: (log.date as Date).toISOString(),
+        week: log.week,
+        day: log.day,
+        completed: log.completed,
+        loggedExercises: (log.loggedExercises || []).map((ex: {
+            exerciseId: { toString: () => string };
+            exerciseName?: string;
+            sets?: { load: number | null; reps: number | null; rpe: number | null }[];
+            notes?: string;
+            order?: number;
+        }, i: number) => ({
+            exerciseId: ex.exerciseId.toString(),
+            exerciseName: ex.exerciseName ?? '',
+            sets: ex.sets ?? []
         })),
     };
 }

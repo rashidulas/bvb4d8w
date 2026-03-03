@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { WorkoutTable } from '@/components/training/WorkoutTable';
 import { getWorkoutTemplate, WorkoutTemplateData, updateWorkoutTemplate, TemplateExerciseData } from '@/lib/actions/programTemplates';
-import { getWorkoutLog, saveWorkoutLog, LoggedExerciseInput } from '@/lib/actions/workoutLogs';
+import { getWorkoutLog, getPreviousWeekLog, saveWorkoutLog, LoggedExerciseInput, WorkoutLogData } from '@/lib/actions/workoutLogs';
 import { getExercises, ExerciseData } from '@/lib/actions/exercises';
 
 
@@ -32,6 +32,7 @@ function TrainingPageInner() {
     const [template, setTemplate] = useState<WorkoutTemplateData | null>(null);
     const [exercises, setExercises] = useState<ExerciseData[]>([]);
     const [loggedExercises, setLoggedExercises] = useState<LoggedExerciseInput[]>([]);
+    const [previousWeekLog, setPreviousWeekLog] = useState<WorkoutLogData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, startSaving] = useTransition();
     const [isEditMode, setIsEditMode] = useState(false);
@@ -42,30 +43,50 @@ function TrainingPageInner() {
         const load = async () => {
             setIsLoading(true);
             try {
-                const [tmpl, log, exList] = await Promise.all([
+                const [tmpl, log, prevLog, exList] = await Promise.all([
                     getWorkoutTemplate(week, day),
                     getWorkoutLog(week, day),
+                    getPreviousWeekLog(week, day),
                     getExercises(),
                 ]);
 
                 setTemplate(tmpl);
                 setExercises(exList);
+                setPreviousWeekLog(prevLog);
 
                 if (log) {
-                    setLoggedExercises(log.loggedExercises);
+                    // Migrate old logs that don't have sets structure
+                    const migratedLog = log.loggedExercises.map((ex, i) => {
+                        if (!ex.sets || ex.sets.length === 0) {
+                            // Old format, create sets from template
+                            const templateEx = tmpl?.exercises[i];
+                            const setCount = templateEx?.sets || 3;
+                            return {
+                                ...ex,
+                                sets: Array.from({ length: setCount }, () => ({
+                                    load: null,
+                                    reps: null,
+                                    rpe: null,
+                                })),
+                            };
+                        }
+                        return ex;
+                    });
+                    setLoggedExercises(migratedLog);
                 } else if (tmpl) {
-                    // Pre-populate with blanks from template
-                    setLoggedExercises(
-                        tmpl.exercises.map((ex) => ({
-                            exerciseId: ex.exerciseId,
-                            exerciseName: ex.exerciseName,
-                            actualLoad: null,
-                            actualReps: null,
-                            actualRpe: null,
-                            notes: '',
-                            order: ex.order,
-                        }))
-                    );
+                    // Pre-populate with empty sets based on template
+                    const initialized = tmpl.exercises.map((ex) => ({
+                        exerciseId: ex.exerciseId,
+                        exerciseName: ex.exerciseName,
+                        sets: Array.from({ length: ex.sets }, () => ({
+                            load: null,
+                            reps: null,
+                            rpe: null,
+                        })),
+                        notes: '',
+                        order: ex.order,
+                    }));
+                    setLoggedExercises(initialized);
                 } else {
                     setLoggedExercises([]);
                 }
@@ -98,6 +119,23 @@ function TrainingPageInner() {
         });
     };
 
+    const handleSaveExercise = (exerciseIndex: number) => {
+        startSaving(async () => {
+            const result = await saveWorkoutLog({
+                week,
+                day,
+                date: new Date().toISOString(),
+                loggedExercises,
+                completed: false,
+            });
+            if (result.success) {
+                toast.success(`${loggedExercises[exerciseIndex].exerciseName} saved! ✓`);
+            } else {
+                toast.error(result.error ?? 'Failed to save');
+            }
+        });
+    };
+
     const handleSaveTemplate = () => {
         if (!template) return;
 
@@ -113,9 +151,11 @@ function TrainingPageInner() {
                         return existing || {
                             exerciseId: ex.exerciseId,
                             exerciseName: ex.exerciseName,
-                            actualLoad: null,
-                            actualReps: null,
-                            actualRpe: null,
+                            sets: Array.from({ length: ex.sets }, () => ({
+                                load: null,
+                                reps: null,
+                                rpe: null,
+                            })),
                             notes: '',
                             order: ex.order,
                         };
@@ -213,8 +253,7 @@ function TrainingPageInner() {
                     <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Week</label>
                     <Select value={String(week)} onValueChange={(v) => setWeek(Number(v))}>
                         <SelectTrigger className="w-28" id="week-select">
-                            <SelectValue />
-                            <ChevronDown className="h-4 w-4 opacity-50 ml-auto" />
+                            <SelectValue placeholder="Week">{`Week ${week}`}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {Array.from({ length: 8 }, (_, i) => i + 1).map((w) => (
@@ -229,8 +268,7 @@ function TrainingPageInner() {
                     <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Day</label>
                     <Select value={String(day)} onValueChange={(v) => setDay(Number(v))}>
                         <SelectTrigger className="w-44" id="day-select">
-                            <SelectValue />
-                            <ChevronDown className="h-4 w-4 opacity-50 ml-auto" />
+                            <SelectValue placeholder="Day">{`Day ${day} — ${DAY_LABELS[day]}`}</SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {[1, 2, 3, 4].map((d) => (
@@ -264,8 +302,11 @@ function TrainingPageInner() {
                     exercises={exercises}
                     loggedExercises={loggedExercises}
                     onLoggedExercisesChange={setLoggedExercises}
+                    previousWeekLog={previousWeekLog}
                     isEditMode={isEditMode}
                     onTemplateChange={handleTemplateChange}
+                    onSaveExercise={!isEditMode ? handleSaveExercise : undefined}
+                    isSaving={isSaving}
                 />
             ) : (
                 <div className="rounded-xl border border-dashed border-border py-16 text-center">

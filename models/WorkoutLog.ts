@@ -1,11 +1,15 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 
+export interface ISetData {
+    load: number | null;  // in lbs
+    reps: number | null;
+    rpe: number | null;
+}
+
 export interface ILoggedExercise {
     exerciseId: Types.ObjectId;
     exerciseName?: string;   // Denormalised for quick display
-    actualLoad: number | null;
-    actualReps: number | null;
-    actualRpe: number | null;
+    sets: ISetData[];        // Array of sets
     notes?: string;
     order: number;
 }
@@ -20,13 +24,20 @@ export interface IWorkoutLog extends Document {
     updatedAt: Date;
 }
 
+const SetDataSchema = new Schema<ISetData>(
+    {
+        load: { type: Number, default: null },
+        reps: { type: Number, default: null },
+        rpe: { type: Number, default: null },
+    },
+    { _id: false }
+);
+
 const LoggedExerciseSchema = new Schema<ILoggedExercise>(
     {
         exerciseId: { type: Schema.Types.ObjectId, ref: 'Exercise', required: true },
         exerciseName: { type: String, default: '' },
-        actualLoad: { type: Number, default: null },
-        actualReps: { type: Number, default: null },
-        actualRpe: { type: Number, default: null },
+        sets: [SetDataSchema],
         notes: { type: String, default: '' },
         order: { type: Number, default: 0 },
     },
