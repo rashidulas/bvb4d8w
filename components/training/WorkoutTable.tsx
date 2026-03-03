@@ -39,10 +39,8 @@ export function WorkoutTable({
     onSaveExercise,
     isSaving = false,
 }: WorkoutTableProps) {
-    // Collapsible state - track which exercises have their sets expanded
-    const [expandedExercises, setExpandedExercises] = useState<Set<number>>(
-        new Set(template.exercises.map((_, i) => i))
-    );
+    // Collapsible state - track which exercises have their sets expanded (start collapsed)
+    const [expandedExercises, setExpandedExercises] = useState<Set<number>>(new Set());
 
     const toggleExercise = (index: number) => {
         const newExpanded = new Set(expandedExercises);

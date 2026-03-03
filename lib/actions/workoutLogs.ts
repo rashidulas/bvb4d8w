@@ -136,7 +136,9 @@ export async function getPreviousWeekLog(
         }, i: number) => ({
             exerciseId: ex.exerciseId.toString(),
             exerciseName: ex.exerciseName ?? '',
-            sets: ex.sets ?? []
+            sets: ex.sets ?? [],
+            notes: ex.notes ?? '',
+            order: ex.order ?? i,
         })),
     };
 }
