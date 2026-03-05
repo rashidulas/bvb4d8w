@@ -58,24 +58,40 @@ function TrainingPageInner() {
                 setPreviousWeekLog(prevLog);
 
                 if (log) {
-                    // Migrate old logs that don't have sets structure
-                    const migratedLog = log.loggedExercises.map((ex, i) => {
-                        if (!ex.sets || ex.sets.length === 0) {
-                            // Old format, create sets from template
-                            const templateEx = tmpl?.exercises[i];
-                            const setCount = templateEx?.sets || 3;
-                            return {
-                                ...ex,
-                                sets: Array.from({ length: setCount }, () => ({
-                                    load: null,
-                                    reps: null,
-                                    rpe: null,
-                                })),
-                            };
+                    // Sync logged exercises with current template structure
+                    const syncedLog = log.loggedExercises.map((ex, i) => {
+                        const templateEx = tmpl?.exercises[i];
+                        const expectedSetCount = templateEx?.sets || 3;
+                        
+                        // If no sets data or wrong number of sets, sync with template
+                        if (!ex.sets || ex.sets.length !== expectedSetCount) {
+                            const existingSets = ex.sets || [];
+                            
+                            // Adjust set count to match template
+                            if (existingSets.length < expectedSetCount) {
+                                // Add empty sets
+                                return {
+                                    ...ex,
+                                    sets: [
+                                        ...existingSets,
+                                        ...Array.from({ length: expectedSetCount - existingSets.length }, () => ({
+                                            load: null,
+                                            reps: null,
+                                            rpe: null,
+                                        })),
+                                    ],
+                                };
+                            } else {
+                                // Trim excess sets
+                                return {
+                                    ...ex,
+                                    sets: existingSets.slice(0, expectedSetCount),
+                                };
+                            }
                         }
                         return ex;
                     });
-                    setLoggedExercises(migratedLog);
+                    setLoggedExercises(syncedLog);
                 } else if (tmpl) {
                     // Pre-populate with empty sets based on template
                     const initialized = tmpl.exercises.map((ex) => ({
@@ -147,11 +163,50 @@ function TrainingPageInner() {
             if (result.success) {
                 toast.success('Template updated!');
                 setIsEditMode(false);
-                // Sync logged exercises with template
+                // Sync logged exercises with template, adjusting set counts
                 setLoggedExercises(
                     template.exercises.map((ex) => {
                         const existing = loggedExercises.find((l) => l.exerciseId === ex.exerciseId);
-                        return existing || {
+                        
+                        if (existing) {
+                            // Keep existing data but adjust set count to match template
+                            const currentSets = existing.sets || [];
+                            
+                            if (currentSets.length < ex.sets) {
+                                // Add empty sets
+                                return {
+                                    ...existing,
+                                    exerciseName: ex.exerciseName, // Update name in case it changed
+                                    sets: [
+                                        ...currentSets,
+                                        ...Array.from({ length: ex.sets - currentSets.length }, () => ({
+                                            load: null,
+                                            reps: null,
+                                            rpe: null,
+                                        })),
+                                    ],
+                                    order: ex.order,
+                                };
+                            } else if (currentSets.length > ex.sets) {
+                                // Trim excess sets
+                                return {
+                                    ...existing,
+                                    exerciseName: ex.exerciseName,
+                                    sets: currentSets.slice(0, ex.sets),
+                                    order: ex.order,
+                                };
+                            } else {
+                                // Set count matches, just update name and order
+                                return {
+                                    ...existing,
+                                    exerciseName: ex.exerciseName,
+                                    order: ex.order,
+                                };
+                            }
+                        }
+                        
+                        // New exercise, create with empty sets
+                        return {
                             exerciseId: ex.exerciseId,
                             exerciseName: ex.exerciseName,
                             sets: Array.from({ length: ex.sets }, () => ({
